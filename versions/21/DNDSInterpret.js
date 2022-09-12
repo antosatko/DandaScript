@@ -1,5 +1,6 @@
 class DNDSInterpret {
     constructor() {
+        this.source
         this.memory = {}
         this.indicators = {
             duplicate: "-",
@@ -55,6 +56,7 @@ class DNDSInterpret {
                     if (this.params[1] !== "")
                         for (let i in this.params)
                             this.params[i] = this.interpret.split(this.params[i], ":")
+                    //else this.params = [] prozatim to necham odstranene, pokud nebudou chyby
                     if (JSON.stringify(this.params) == '[[""]]')
                         this.params = []
                     this.value = value
@@ -102,7 +104,7 @@ class DNDSInterpret {
                     this.interpret = interpret
                     this.value = {}
                     this.containes = {}
-                    this.set(value, memory )
+                    this.set(value)
                 }
                 read(params, nested = {}) {
                     return "(object)"
@@ -130,9 +132,7 @@ class DNDSInterpret {
                 set(params, memory = {}) {
                     let count = 0
                     for (let i in params) {
-                        let datatype = i
-                        while(datatype[0] == "-") datatype = datatype.substring(1)
-                        this.interpret.write(datatype, count, this.interpret.translateSingle(params[i], memory), this.array)
+                        this.interpret.write(i, count, this.interpret.translateSingle(params[i], memory), this.array)
                         count++
                     }
                 }
@@ -166,7 +166,7 @@ class DNDSInterpret {
                 }
             }
         }
-        this.actions = {
+        this.actions = {// mozna vyuziju pozdeji, nechci kvuli bezpecnosti // koho zajima bezpecnost lmao
             write(data, memory = {}) {
                 this.interpret.write(data[0], data[1], data[2], memory)
             },
@@ -213,7 +213,7 @@ class DNDSInterpret {
         this.comparison = {
             "+": {
                 stack: true,
-                evaluate: function(a, b) {
+                evaluate(a, b) {
                     return ((!isNaN(a) ? Number(a) : a) + (!isNaN(b) ? Number(b) : b))
                 }
             },
@@ -321,28 +321,26 @@ class DNDSInterpret {
         return expression
     }
     translateParams(expression, memory, left = "({[", right = ")}]") {
-        let expr = this.split(expression).pop()
         let str = ""
-        let result = []
         let count = 0
-        for (let i = 1; i < expr.length - 1; i++){
-            if(left.indexOf(expr[i]) != -1){
+        for (let i in expression) {
+            if (count > 0) {
+                if (right.indexOf(expression[i]) != -1) {
+                    count--
+                    if (count == 0)
+                        break
+                }
+                str += expression[i]
+            }
+            if (left.indexOf(expression[i]) != -1)
                 count++
-            }else if (right.indexOf(expr[i]) != -1){
-                count--
-            }
-            if(expr[i] == ";" && count == 0){
-                result.push(str)
-                str = ""
-                continue
-            }
-            str += expr[i]
+            if (count == 0 && "{[(".indexOf(expression[i]) != -1) break
         }
-        result.push(str)
-        for(let i in result){
-            result[i] = this.translateSingle(result[i], memory)
-        }
-        return result
+        if (count != 0) return [""]
+        let split = this.split(str, ";")
+        for (let i in split)
+            split[i] = this.translateSingle(split[i], memory)
+        return split
     }
     splitParams(expression, left = "{[(", right = "}])") {
         let brackets = [left, right]
@@ -715,14 +713,6 @@ requestAction(data  )
  *  samozrejme se daji metody kombinovat: objekt{var}.ahoj[5][getIdx](Ahoj mami jsem v televizi)
  *      - bug: zavorky pro poslani parametru se muzou objevit jen jednou
  * 
- * den 22.
- *  bugfix: objekty nyni vidi spravne do pameti
- *      - pole nyni mohou pouzivat vicekrat stejny datovy typ pri deklaraci pomoci duplicate initilazer "----string":"Hello!"
- * 
- * den 23. 
- *  bugfix: výsledek funkcí i operací lze napsat rovnou do parametru volané funkce "myFunc(otherFunc(123);=123 + func(122))"
- *  update: DNDS obsahuje vývojářskou verzi
- * 
  */
 
 
@@ -730,8 +720,8 @@ requestAction(data  )
  * 
  * bugs: return v if a for nefunguje správně 12. den // fixed 14. den
  *      pokud posilam do funkce immutable promennou sayHello[!!!hello] - je nutne napsat 3 vykricniky 17. den
- *      zavorky pro poslani parametru se muzou objevit jen jednou 21. den // fixed 23. den
- *      pri vytvareni 2+ promennych se stejnymi datovymi typy v jednom poli nelze pouzit duplicate initilazer na zacatku leve strany "---number":5 den 21. // fixed 22. den
+ *      zavorky pro poslani parametru se muzou objevit jen jednou 21. den
+ *      pri vytvareni 2+ promennych se stejnymi datovymi typy v jednom poli nelze pouzit duplicate operator na zacatku leve strany "---number":5 den 21.
  * 
  */
 

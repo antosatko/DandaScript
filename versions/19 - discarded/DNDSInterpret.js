@@ -1,5 +1,6 @@
 class DNDSInterpret {
     constructor() {
+        this.source
         this.memory = {}
         this.indicators = {
             duplicate: "-",
@@ -50,17 +51,19 @@ class DNDSInterpret {
             function: class {
                 constructor(name, value, interpret = {}, memory = {}) {
                     this.interpret = interpret
-                    this.name = name.substring(0, name.indexOf("("))
-                    this.params = this.interpret.split(name.substring(name.indexOf("(") + 1, name.length - 1), ";")
+                    this.name = name.substring(0, name.indexOf("["))
+                    this.params = this.interpret.split(name.substring(name.indexOf("[") + 1, name.length - 1), ";")
                     if (this.params[1] !== "")
                         for (let i in this.params)
                             this.params[i] = this.interpret.split(this.params[i], ":")
+                    //else this.params = [] prozatim to necham odstranene, pokud nebudou chyby
                     if (JSON.stringify(this.params) == '[[""]]')
                         this.params = []
                     this.value = value
                 }
                 read(params, nested = {}) {
                     let memory = {}
+                    if(params != undefined)
                     for (let i in this.params)
                         this.interpret.write(this.params[i][0], this.params[i][1], params[i], memory)
                     let read = this.interpret.readCode("code", this.value, memory)
@@ -102,7 +105,7 @@ class DNDSInterpret {
                     this.interpret = interpret
                     this.value = {}
                     this.containes = {}
-                    this.set(value, memory )
+                    this.set(value)
                 }
                 read(params, nested = {}) {
                     return "(object)"
@@ -122,20 +125,21 @@ class DNDSInterpret {
                     this.value = {}
                     this.containes = {}
                     this.array = []
+                    this.len = 0
                     this.set(value, memory)
                 }
                 read(params, nested = {}) {
-                    return "(array)"
+                    let aq
+                    return this.array[params]
                 }
                 set(params, memory = {}) {
-                    let count = 0
                     for (let i in params) {
-                        let datatype = i
-                        while(datatype[0] == "-") datatype = datatype.substring(1)
-                        this.interpret.write(datatype, count, this.interpret.translateSingle(params[i], memory), this.array)
-                        count++
+                        this.interpret.write(i, String(this.len), this.interpret.translateSingle(params[i], memory), this.array)
+                        this.len++
                     }
+                    return
                 }
+
             }
 
         }
@@ -166,7 +170,7 @@ class DNDSInterpret {
                 }
             }
         }
-        this.actions = {
+        this.actions = {// mozna vyuziju pozdeji, nechci kvuli bezpecnosti // koho zajima bezpecnost lmao
             write(data, memory = {}) {
                 this.interpret.write(data[0], data[1], data[2], memory)
             },
@@ -202,7 +206,7 @@ class DNDSInterpret {
                 return this.interpret.translateMultiple(data, memory)
             },
             read(data, memory = {}) {
-                this.interpret.translateSingle(data, memory)
+                this.interpret.translateMultiple(data, memory)
             },
             delete(data, memory = {}) {
                 let path = this.interpret.followPath(data, memory)
@@ -213,7 +217,7 @@ class DNDSInterpret {
         this.comparison = {
             "+": {
                 stack: true,
-                evaluate: function(a, b) {
+                evaluate(a, b) {
                     return ((!isNaN(a) ? Number(a) : a) + (!isNaN(b) ? Number(b) : b))
                 }
             },
@@ -290,9 +294,10 @@ class DNDSInterpret {
         let assign = new this.dataTypes[type](name, value, this, { ...this.memory, ...place })
         if (path.isNested) {
             path.place[path.end] = assign
-            return
+            return true
         }
         place[assign.name] = assign
+        return true
     }
     rewrite(name, value, place = this.memory) {
         let path = this.followPath(name, place)
@@ -300,9 +305,9 @@ class DNDSInterpret {
             path.place[path.end].set(value, { ...this.memory, ...place })
             return
         }
-        if (path.end in place)
+        if (path.end in place) 
             place[path.end].set(value, { ...this.memory, ...place })
-        else
+        else 
             this.memory[path.end].set(value, { ...this.memory, ...place })
         return true
     }
@@ -314,110 +319,70 @@ class DNDSInterpret {
     removeToken(token, expression) {
         return expression.substring(token.length)
     }
-    removeParams(expression, brackets = "({[") { //expression.neco je undefined protoze to neni string ffs uz si to zapamatuj
-        for (let i in expression)
-            if (brackets.indexOf(expression[i]) != -1)
-                return expression.substring(0, i)
-        return expression
+    removeParams(expression, brackets = "[") { //expression.neco je undefined protoze to neni string ffs uz si to zapamatuj
+        return expression.substring(0, expression.indexOf(brackets)) || expression
     }
-    translateParams(expression, memory, left = "({[", right = ")}]") {
-        let expr = this.split(expression).pop()
+    translateParams(expression, memory, brackets = "[]") {
         let str = ""
-        let result = []
         let count = 0
-        for (let i = 1; i < expr.length - 1; i++){
-            if(left.indexOf(expr[i]) != -1){
-                count++
-            }else if (right.indexOf(expr[i]) != -1){
-                count--
-            }
-            if(expr[i] == ";" && count == 0){
-                result.push(str)
-                str = ""
-                continue
-            }
-            str += expr[i]
-        }
-        result.push(str)
-        for(let i in result){
-            result[i] = this.translateSingle(result[i], memory)
-        }
-        return result
-    }
-    splitParams(expression, left = "{[(", right = "}])") {
-        let brackets = [left, right]
-        let count = 0
-        let result = []
-        let str
-        for (let i in expression) {
-            if (count > 0)
-                str += expression[i]
-            if (brackets[0].indexOf(expression[i]) != -1) {
-                if (count == 0)
-                    str = expression[i]
-                count++
-            }
-            else if (brackets[1].indexOf(expression[i]) != -1) {
-                count--
-                if (count == 0) {
-                    if (left.indexOf(str[0]) == right.indexOf(str[str.length - 1]) && (i == expression.length - 1 || left.indexOf(expression[i - -1]) != -1)) {
-                        result.push(str)
-                    }
-                    else throw "Invalid expression: " + expression
+        for(let i in expression){
+            if(count > 0){
+                if(expression[i] == brackets[1]){
+                    count--
+                    if(count == 0)
+                        break
                 }
+                //if(str[str.length - 1] != ";" || expression[i] != " ") // pro vykon programu nic moc, ale vypada to dobre :D
+                str += expression[i]
             }
+            if(expression[i] == brackets[0])
+                count++
+            if(count == 0 && "{[(".indexOf(expression[i]) != -1) break
         }
-        if (count == 0)
-            return result
-        throw "Invalid expression: " + expression
+        if(count != 0) return [""]
+        let split = this.split(str, ";")
+        for(let i in split)
+            split[i] = this.translateSingle(split[i], memory)
+        return split
     }
     followPath(path, nested = this.memory) {
         let place = { ...this.memory, ...nested }
         let split = this.split(path, ".")
         let origin = split.shift()
-        if (!(origin in place) || this.indexOfBrackets(path, "{[.") == -1) return { place, origin, end: origin, isNested: false }
-        let end = split.pop()
-        place = place[origin]
-        for (let i in split) {
-            let suffix = this.suffix(split[i])
-            place = place[suffix.suffix][suffix.translate ? this.translateParams(split[i], { ...this.memory, ...nested })[0] : split[i]]
+        if (path.indexOf(".") == -1 && !(this.removeParams(origin, "{") in place)) return { place, origin, end: origin, isNested: false }
+        /*for (let i in split) 
+            split[i] = this.translateSingle(split[i], place)*/
+        let end = split.pop() || origin
+        let translated = this.translateParams(origin, nested, "{}")
+        place = translated[0] != "" ? place[this.removeParams(origin, "{")].array : place[origin].containes
+        for (let i in split) 
+            place = this.translateParams(split[i], nested, "{}")[0] != "" ? place[this.removeParams(split[i], "{")].array : place[split[i]].containes
+        let translatedEnd = this.translateParams(end, nested, "{}")
+        if(translatedEnd[0] != "") {
+            if(origin != end)
+                place = place[this.removeParams(end, "{")].array
+            end = translatedEnd
         }
-        let endSuff = this.suffix(end)
-        place = place[endSuff.suffix]
-        if (endSuff.translate)
-            end = this.translateParams(end, { ...this.memory, ...nested })[0]
         return { place, origin, end, isNested: true }
-    }
-    suffix(expression) {
-        let idx = -1
-        for (let i in expression) {
-            let curIdx = "([{".indexOf(expression[i])
-            if (curIdx != -1)
-                idx = curIdx
-            break
-        }
-        switch (idx) {
-            case -1: return { suffix: "containes", translate: false }
-            case 1: return { suffix: "array", translate: true }
-            case 2: return { suffix: "containes", translate: true }
-        }
     }
     translateSingle(expression, nested = {}) {
         if (typeof expression != "string") return expression
         if (expression[0] == this.indicators.immutable) return expression.substring(1)
         let memory = { ...this.memory, ...nested }
-        let removed = this.removeParams(expression, "(")
-        if (removed.length > 1 && removed[0] === this.indicators.comparison)
+        let removed = this.removeParams(expression)
+        if (removed.length > 1 && removed[0] === this.indicators.comparison) {
             return String(this.readComparison(expression.substring(1), memory))
+        }
         let path = this.followPath(removed, nested)
-        if (path.end in path.place)
+        if (path.end in path.place) {
             return path.place[path.end].read(this.translateParams(expression, nested), memory)
+        }
         return expression
     }
     translateMultiple(expression, nested = {}) {
         if (typeof expression != "string") return expression
         let split = expression.split(this.indicators.split)
-        for (let i in split)
+        for (let i in split) 
             split[i] = this.translateSingle(split[i], nested)
         return split.join("")
     }
@@ -444,31 +409,29 @@ class DNDSInterpret {
     }
     split(expression, splitter = ".", brackets = ["[]", "()", "{}"]) {
         let product = []
-        let count = 0
+        let seen = 0
         let str = ""
         for (let i = 0; i < expression.length; i++) {
             for (let j = 0; j < brackets.length; j++) {
                 if (expression[i] === brackets[j][0])
-                    count++
+                    seen++
                 else if (expression[i] === brackets[j][1])
-                    count--
+                    seen--
             }
-            if (expression[i] === splitter && count == 0) {
-                product.push(this.removeParams(str))
-                product = [...product, ...this.splitParams(str)]
+            if (expression[i] === splitter && seen == 0) {
+                product.push(str)
                 str = ""
                 continue
             }
             str += expression[i]
         }
-        product.push(this.removeParams(str))
-        product = [...product, ...this.splitParams(str)]
+        product.push(str)
         return product
     }
     readComparison(expression, memory = {}) {
         let backstack = [null, null]
         let frontstack = [null, null]
-        let commands = expression.split(" ")
+        let commands = this.split(expression, " ")
         for (let i = 0; i < commands.length; i++) {
             let command = this.translateSingle(commands[i], memory)
             if (command in this.comparison) {
@@ -506,16 +469,8 @@ class DNDSInterpret {
             return frontstack[0] ?? backstack[0]
         return this.comparison[backstack[1]].evaluate(backstack[0], frontstack[0])
     }
-    indexOfBrackets(expression, brackets = "([{") {
-        let idx
-        for (let i in expression) {
-            idx = brackets.indexOf(expression[i])
-            if (idx != -1)
-                return idx
-        }
-        return -1
-    }
 }
+
 
 
 
@@ -687,42 +642,6 @@ requestAction(data  )
     },
     "return":"sayHello[std.pow[2;2]]" // vratilo: 4 // drivejsi verze vrati: 'std.pow[2'
  *  
- * den 19.
- *  array - nekolikrat discardnuto // nakonec jsem se vratil k posledni stabilni verzi
- *  interpret.translateParams - vylepseno, nemyslim si, ze to bylo nutne, ale v budoucnu mi to ulehci debuggovani 
- * 
- * den 20.
- *  interpret.splitParams
- *  a vubec tak nejak priprava na pridani array jako datovy typ (uz se nemuzu dockat, az udelam mario-like hru v dandascriptu xd)
- *      - hlavne teda moznost napsat neco takoveho number poziceX = pole[i][j].getPos(std.random(2;6))
- *      - std.random(min;max) // min max, abych se zbavil co nejvice matematiky v dnds
- * 
- * den 21.
- *  array - konecne funkcni, zatim sice nema zadne metody, ty uz se ale pridaji jednoduse
- *  syntax - 
- *          "/array pole":{
- *              "string":"Hello world!",
- *              "array":{
- *                  "string":"neco si domysli"
- *              }
- *          },
- *          "/string pole[2]":"Bye world!",
- *          "return":"pole[1][0]"
- *  nemam zatim zadne tridy a uprimne je asi delat ani nebudu, obrovsky by to sice zvysilo vykon, ale musel bych proto prekopat cely interpret
- *  update: indexy objektu se nini muzou psat 2 zpusoby
- *      - translated: objekt{index}
- *      - untranslated: objekt.update
- *  samozrejme se daji metody kombinovat: objekt{var}.ahoj[5][getIdx](Ahoj mami jsem v televizi)
- *      - bug: zavorky pro poslani parametru se muzou objevit jen jednou
- * 
- * den 22.
- *  bugfix: objekty nyni vidi spravne do pameti
- *      - pole nyni mohou pouzivat vicekrat stejny datovy typ pri deklaraci pomoci duplicate initilazer "----string":"Hello!"
- * 
- * den 23. 
- *  bugfix: výsledek funkcí i operací lze napsat rovnou do parametru volané funkce "myFunc(otherFunc(123);=123 + func(122))"
- *  update: DNDS obsahuje vývojářskou verzi
- * 
  */
 
 
@@ -730,8 +649,6 @@ requestAction(data  )
  * 
  * bugs: return v if a for nefunguje správně 12. den // fixed 14. den
  *      pokud posilam do funkce immutable promennou sayHello[!!!hello] - je nutne napsat 3 vykricniky 17. den
- *      zavorky pro poslani parametru se muzou objevit jen jednou 21. den // fixed 23. den
- *      pri vytvareni 2+ promennych se stejnymi datovymi typy v jednom poli nelze pouzit duplicate initilazer na zacatku leve strany "---number":5 den 21. // fixed 22. den
  * 
  */
 

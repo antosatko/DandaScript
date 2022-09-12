@@ -1,5 +1,6 @@
-class DNDSInterpret {
+class DNDSDebugger {
     constructor() {
+        this.source
         this.memory = {}
         this.indicators = {
             duplicate: "-",
@@ -19,6 +20,9 @@ class DNDSInterpret {
                 }
                 set(params, nested = {}) {
                     this.value = Number(this.interpret.translateSingle(params, nested))
+                    if (this.value == NaN) {
+                        console.warn("Warning: Value of " + this.name + " set to NaN")
+                    }
                 }
             },
             string: class {
@@ -102,12 +106,15 @@ class DNDSInterpret {
                     this.interpret = interpret
                     this.value = {}
                     this.containes = {}
-                    this.set(value, memory )
+                    this.set(value, memory)
                 }
                 read(params, nested = {}) {
+                    console.warn("Warning: Trying to read an object. Current version doesn´t support pointers.")
                     return "(object)"
                 }
                 set(params, memory = {}) {
+                    if (typeof params != "object")
+                        throw "Objects must be initialized directly. Copying is no supported in the current version."
                     for (let i in params) {
                         let left = i.split(" ")
                         this.interpret.write(left[0], left[1], this.interpret.translateSingle(params[i], memory), this.containes)
@@ -124,14 +131,18 @@ class DNDSInterpret {
                     this.array = []
                     this.set(value, memory)
                 }
-                read(params, nested = {}) {
+                read(params, nested = {}, path) {
+                    console.log(path)
+                    console.warn("Warning: Trying to read an array. Current version doesn´t support pointers.")
                     return "(array)"
                 }
                 set(params, memory = {}) {
+                    if (typeof params != "object")
+                        throw "Arrays must be initialized as an object. Copying is not supported in the current version."
                     let count = 0
                     for (let i in params) {
                         let datatype = i
-                        while(datatype[0] == "-") datatype = datatype.substring(1)
+                        while (datatype[0] == "-") datatype = datatype.substring(1)
                         this.interpret.write(datatype, count, this.interpret.translateSingle(params[i], memory), this.array)
                         count++
                     }
@@ -205,6 +216,7 @@ class DNDSInterpret {
                 this.interpret.translateSingle(data, memory)
             },
             delete(data, memory = {}) {
+                console.warn("Warning: Trying to use an unstable feature 'delete', consider other solutions")
                 let path = this.interpret.followPath(data, memory)
                 delete path.place.containes[path.end]
             },
@@ -213,32 +225,47 @@ class DNDSInterpret {
         this.comparison = {
             "+": {
                 stack: true,
-                evaluate: function(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) + (!isNaN(b) ? Number(b) : b))
+                evaluate: function (a, b) {
+                    let answer = ((!isNaN(a) ? Number(a) : a) + (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(answer))
+                        console.warn("Warning: Operation " + a + " + " + b + " resulted in NaN.")
+                    return answer
                 }
             },
             "-": {
                 stack: true,
                 evaluate(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) - (!isNaN(b) ? Number(b) : b))
+                    let answer = ((!isNaN(a) ? Number(a) : a) - (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(answer))
+                        console.warn("Warning: Operation " + a + " - " + b + " resulted in NaN.")
+                    return answer
                 }
             },
             "*": {
                 stack: true,
                 evaluate(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) * (!isNaN(b) ? Number(b) : b))
+                    let answer = ((!isNaN(a) ? Number(a) : a) * (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(answer))
+                        console.warn("Warning: Operation " + a + " * " + b + " resulted in NaN.")
+                    return answer
                 }
             },
             "/": {
                 stack: true,
                 evaluate(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) / (!isNaN(b) ? Number(b) : b))
+                    let answer = ((!isNaN(a) ? Number(a) : a) / (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(answer))
+                        console.warn("Warning: Operation " + a + " / " + b + " resulted in NaN.")
+                    return answer
                 }
             },
             "%": {
                 stack: true,
                 evaluate(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) % (!isNaN(b) ? Number(b) : b))
+                    let answer = ((!isNaN(a) ? Number(a) : a) % (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(answer))
+                        console.warn("Warning: Operation " + a + " % " + b + " resulted in NaN.")
+                    return answer
                 }
             },
             "=": {
@@ -256,25 +283,33 @@ class DNDSInterpret {
             "<": {
                 stack: false,
                 evaluate(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) < (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(a) || isNaN(b))
+                        throw "Exception: Trying to do number operations on non number values: " + a + " < " + b
+                    return Number(a) < Number(b)
                 }
             },
             ">": {
                 stack: false,
                 evaluate(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) > (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(a) || isNaN(b))
+                        throw "Exception: Trying to do number operations on non number values: " + a + " > " + b
+                    return Number(a) > Number(b)
                 }
             },
             "<=": {
                 stack: false,
                 evaluate(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) <= (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(a) || isNaN(b))
+                        throw "Exception: Trying to do number operations on non number values: " + a + " <= " + b
+                    return Number(a) <= Number(b)
                 }
             },
             ">=": {
                 stack: false,
                 evaluate(a, b) {
-                    return ((!isNaN(a) ? Number(a) : a) >= (!isNaN(b) ? Number(b) : b))
+                    if (isNaN(a) || isNaN(b))
+                        throw "Exception: Trying to do number operations on non number values: " + a + " >= " + b
+                    return Number(a) >= Number(b)
                 }
             },
             "typeof": {
@@ -287,6 +322,8 @@ class DNDSInterpret {
     }
     write(type, name, value, place = this.memory) {
         let path = this.followPath(name, place)
+        if (!(type in this.dataTypes))
+            throw "Exception: Type " + type + " doesn´t exist. path: '" + name + "' value: '" + value + "'"
         let assign = new this.dataTypes[type](name, value, this, { ...this.memory, ...place })
         if (path.isNested) {
             path.place[path.end] = assign
@@ -297,24 +334,36 @@ class DNDSInterpret {
     rewrite(name, value, place = this.memory) {
         let path = this.followPath(name, place)
         if (path.isNested) {
-            path.place[path.end].set(value, { ...this.memory, ...place })
+            try {
+                path.place[path.end].set(value, { ...this.memory, ...place })
+            } catch {
+                throw "Variable '" + name + "', you are trying to reassign to '" + value + "' is undefined."
+            }
             return
         }
         if (path.end in place)
-            place[path.end].set(value, { ...this.memory, ...place })
-        else
+            try {
+                place[path.end].set(value, { ...this.memory, ...place })
+                return true
+            } catch {
+                throw "Variable '" + name + "', you are trying to reassign to '" + value + "' is undefined."
+            }
+        try {
             this.memory[path.end].set(value, { ...this.memory, ...place })
+        } catch {
+            throw "Variable '" + name + "', you are trying to reassign to '" + value + "' is undefined."
+        }
         return true
     }
     readToken(parent, expression) {
         for (let i in this.tokens[parent])
             if (expression.indexOf(i) == 0) return i
-        return null
+        throw "Unknown token '" + expression + "' in modificator '" + parent + "'"
     }
     removeToken(token, expression) {
         return expression.substring(token.length)
     }
-    removeParams(expression, brackets = "({[") { //expression.neco je undefined protoze to neni string ffs uz si to zapamatuj
+    removeParams(expression, brackets = "({[") {
         for (let i in expression)
             if (brackets.indexOf(expression[i]) != -1)
                 return expression.substring(0, i)
@@ -325,45 +374,47 @@ class DNDSInterpret {
         let str = ""
         let result = []
         let count = 0
-        for (let i = 1; i < expr.length - 1; i++){
-            if(left.indexOf(expr[i]) != -1){
+        for (let i = 1; i < expr.length - 1; i++) {
+            if (left.indexOf(expr[i]) != -1) {
                 count++
-            }else if (right.indexOf(expr[i]) != -1){
+            } else if (right.indexOf(expr[i]) != -1) {
                 count--
             }
-            if(expr[i] == ";" && count == 0){
+            if (expr[i] == ";" && count == 0) {
                 result.push(str)
                 str = ""
                 continue
             }
             str += expr[i]
         }
+        if (count != 0) {
+            throw "Syntax error: Invalid number of brackets at '" + expr + "'"
+        }
         result.push(str)
-        for(let i in result){
+        for (let i in result) {
             result[i] = this.translateSingle(result[i], memory)
         }
         return result
     }
     splitParams(expression, left = "{[(", right = "}])") {
-        let brackets = [left, right]
         let count = 0
         let result = []
         let str
         for (let i in expression) {
             if (count > 0)
                 str += expression[i]
-            if (brackets[0].indexOf(expression[i]) != -1) {
+            if (left.indexOf(expression[i]) != -1) {
                 if (count == 0)
                     str = expression[i]
                 count++
             }
-            else if (brackets[1].indexOf(expression[i]) != -1) {
+            else if (right.indexOf(expression[i]) != -1) {
                 count--
                 if (count == 0) {
                     if (left.indexOf(str[0]) == right.indexOf(str[str.length - 1]) && (i == expression.length - 1 || left.indexOf(expression[i - -1]) != -1)) {
                         result.push(str)
                     }
-                    else throw "Invalid expression: " + expression
+                    else throw "Syntax error: Invalid number of brackets at '" + expression + "'"
                 }
             }
         }
@@ -372,21 +423,30 @@ class DNDSInterpret {
         throw "Invalid expression: " + expression
     }
     followPath(path, nested = this.memory) {
-        let place = { ...this.memory, ...nested }
-        let split = this.split(path, ".")
-        let origin = split.shift()
-        if (!(origin in place) || this.indexOfBrackets(path, "{[.") == -1) return { place, origin, end: origin, isNested: false }
-        let end = split.pop()
-        place = place[origin]
-        for (let i in split) {
-            let suffix = this.suffix(split[i])
-            place = place[suffix.suffix][suffix.translate ? this.translateParams(split[i], { ...this.memory, ...nested })[0] : split[i]]
+        try {
+            let place = { ...this.memory, ...nested }
+            let split = this.split(path, ".")
+            let origin = split.shift()
+            if (!(origin in place) || this.indexOfBrackets(path, "{[.") == -1) {
+                return { place, origin, end: origin, isNested: false }
+            }
+            let end = split.pop()
+            place = place[origin]
+            for (let i in split) {
+                let suffix = this.suffix(split[i])
+                place = place[suffix.suffix][suffix.translate ? this.translateParams(split[i], { ...this.memory, ...nested })[0] : split[i]]
+            }
+            let endSuff = this.suffix(end)
+            place = place[endSuff.suffix]
+            if (endSuff.translate)
+                end = this.translateParams(end, { ...this.memory, ...nested })[0]
+            if (!(end in place))
+                console.warn("Warning: Path '" + path + "' doesn´t end with existing value.")
+            return { place, origin, end, isNested: true }
         }
-        let endSuff = this.suffix(end)
-        place = place[endSuff.suffix]
-        if (endSuff.translate)
-            end = this.translateParams(end, { ...this.memory, ...nested })[0]
-        return { place, origin, end, isNested: true }
+        catch {
+            throw "Failed at reading path: '" + path + "'"
+        }
     }
     suffix(expression) {
         let idx = -1
@@ -411,7 +471,7 @@ class DNDSInterpret {
             return String(this.readComparison(expression.substring(1), memory))
         let path = this.followPath(removed, nested)
         if (path.end in path.place)
-            return path.place[path.end].read(this.translateParams(expression, nested), memory)
+            return path.place[path.end].read(this.translateParams(expression, nested), memory, path)
         return expression
     }
     translateMultiple(expression, nested = {}) {
@@ -425,8 +485,16 @@ class DNDSInterpret {
         return this.tokens[parent][token](expression, value, memory)
     }
     readCode(parent, expression, memory = this.memory) {
+        let line = 0
+        let ans
         for (let i in expression) {
-            let ans = this.readLine(parent, i, expression[i], memory)
+            try {
+                ans = this.readLine(parent, i, expression[i], memory)
+            } catch (e) {
+                console.error("code: ", expression, "\nmemory: ", memory)
+                throw "Error on line " + line + "\n" + e
+            }
+            line++
             if (ans !== undefined)
                 return ans
         }
@@ -477,6 +545,8 @@ class DNDSInterpret {
                     continue
                 }
                 if (backstack[1] !== null) {
+                    if (!(backstack[1] in this.comparison))
+                        throw "Expected operator, found '" + backstack[1] + "' at expression '" + expression + "'"
                     frontstack[0] = this.comparison[backstack[1]].evaluate(backstack[0], frontstack[0])
                     backstack[0] = null
                     backstack[1] = command
@@ -493,10 +563,14 @@ class DNDSInterpret {
                 continue
             }
             if (frontstack[1] !== null) {
+                if (!(frontstack[1] in this.comparison))
+                    throw "Expected operator, found '" + frontstack[1] + "' at expression '" + expression + "'"
                 frontstack[0] = this.comparison[frontstack[1]].evaluate(frontstack[0], command)
                 frontstack[1] = null
                 continue
             }
+            if (!(backstack[1] in this.comparison))
+                throw "Expected operator, found '" + backstack[1] + "' at expression '" + expression + "'"
             frontstack[0] = this.comparison[backstack[1]].evaluate(frontstack[0], command)
             backstack[1] = null
             backstack[0] = null
@@ -504,6 +578,8 @@ class DNDSInterpret {
         }
         if (backstack[1] === null)
             return frontstack[0] ?? backstack[0]
+        if (!(backstack[1] in this.comparison))
+            throw "Expected operator, found '" + backstack[1] + "' at expression '" + expression + "'"
         return this.comparison[backstack[1]].evaluate(backstack[0], frontstack[0])
     }
     indexOfBrackets(expression, brackets = "([{") {
@@ -517,292 +593,3 @@ class DNDSInterpret {
     }
 }
 
-
-
-
-
-
-/**
- *  nefunguje return funkce, pravdepodobne spatne vraci hodnotu, nebo ji uz nemuze precist
- * let read v funkci je undefined
- * nenavidim se
- * "jooo tohle rychle zpravím aby to v budoucnu nedělalo problémy"
- * hehehehehehehehehhahahahehaehahhhahahahhaahhahahahahahhahahaha
- * ¨
- * problémy ty to udělalo a nemálo
- * 4 hodiny jsem to zpravoval
- * proc to delam
- * uz to funguje
- * necitim stesti jen prazdnotu
- * 
- */
-
-
-
-
-/*
-
-"/string danda": "fsdragfsd"
-
-let action = modifier("/", "string danda")
-
-requestAction(data  )
-
-*/
-
-/**CHANGE LIST
- * 
- * DATA TYPES{
- *  function
- *  sentence
- *  string
- *  number
- *  COMING{
- *      const // uklada jakoukoliv hodnotu, se kterou lze operovat po prideleni datoveho typu
- *      object
- *      array
- *      boolean // co bych s tim ztracel cas, string bude stacit
- *  }
- * }
- * 
- * den 3. asi 
- * -prvni verze for i 50
- * -prvni verze if /variable
- * -uprava uhlednosti a recyklace kodu
- * -benchmark for i 50000{
- *      js: 2
- *      dnds: 212
- *      dnds se casem zlepsoval prumerne porovnani js je 70x rychlejsi
- *      dnds po optimalizaci by se melo vyrazne zrychlit odhaduji 10-5x pomalejsi
- *      dnds pro vytvoreni jednoduche hry dostacujici
- * }
- * 
- * 
- * den 4. 
- *  -moznost prepsat promennou
- *  -for i 50000 - dnds: 60 - 20
- *  -plany: navratova hodnota, intuitivni prepsani promenne, zavorky ve vyrazu
- * 
- * den 5.
- *  -minor changes
- *      -const // uklada jakoukoliv hodnotu, se kterou lze operovat po prideleni datoveho typu
- *      -write performance boost
- * 
- * den 6.
- *  -bugfix - for nemusí používat proměnnou i // jop fakt jsem to udělal tak špatně, že šla použít jenom proměnná i
- *  -akce, ktere muze kod vyvolat se nini pisou do objektu pro modularnost
- *  -super-ultra-maly performance boost pri vytvareni promennych
- * 
- * den 7.
- *  -funkce nyni funguje i s 0 argumenty (ano predtim to neslo :D)
- *  -argumenty funkce nini odeleny strednikem misto carky
- *  -uprava uhlednosti kodu
- *  -BIG moznost vypsat promennou uvnitr stringu
- *      -funkcim lze prepsat pouze kod, argumenty nikoliv
- *      -pro pretypovani staci deklarovat novou promennou se stejnym nazvem a jinym typem
- * 
- * den 8.
- *  -priprava pro modulaci
- *  -uprava kodu (zjednodusene hledani tokenu - uvolneni trochu pameti a hlavne lepsi modulace)
- *  this.tokens = {
- *         code: ["for ", "if ", "switch ", "control", "/", "return", "console"],
- *         head: ["include", "init", "setup"],
- *         execute: ["for", "if", "interval", "function"]
- *  } // abych si to pamatoval
- *  - planuju dat vsechny datove typy do nejakeho modulu, napr std nebo tak
- *  - VSEMOCNE INDIKATORY!!!
- *  - nevim jak jsem rozbil for, ale uz jsem to patchnul
- *  -for i 50000 - dnds: 50
- * 
- * den 9.
- *  - sentence ma nini pristup do docasne pameti napr. uvnitr funkce // zabralo mi to asi 1 minutu a myslim, ze to pro dnesek staci :)
- * 
- * den 11.
- *  - implementace porovnavani
- *      -cte se z leva do prava
- *      "console":"=50 + 60 / 10" // log: 11
- * 
- * den 12.
- *  - bugfix - promenne vytvorene ve funkci ted vidi do pameti funkce
- *  - for ted muze pouzivat logiku v leve strane // for i =50 * 2
- * 
- * den 13.
- *  - ptr datovy typ, brzy ale asi smazu a udelam pomoci referencnich tokenu, nebo jak se tomu rika, proste (*, &)
- * 
- * den 14.
- *  bubfix - return v for a if funguje
- * 
- * den 15.
- *  bugfix - funkce uvnitr vypoctu se ted vola spravne // =pow[2;2] + 20 // drive by hodilo error
- * 
- * den 16.
- *  keyword: read - precte hodnotu promenne, vyuzivany hlavne pro funkce, pokud nas nezajima navratova hodnota
- *  knihovny:
- *      DNDSConnect: funguje jako bridge mezi js a dnds
- *      DNDSCanvas: umoznuje kreslit na html canvas
- *      DNDS_HTML_Input: umoznuje vyuzivat eventy pro kliknuti mysi, ci klavesnice v prohlizeci
- *  bugfix - hodnoty na stacku se nini spravne posilaji do volane funkce
- * 
- * den 17.
- *  objekty jsou tu!
- *  zapis objektu:
- *      "/object myObject":{
- *          "string hello":"world",
- *          "object anotherObject":{
- *              "function myFun[string:name]":{
- *                  "console":"Hello _name_!"
- *              }
- *          }
- *      }
- *  zapis do objektu:
- *      "/string myObject.myNewString":"Hello world!"
- *  prepsani uvnitr objektu:
- *      "/myObject.myNewString":"Goodbye world!"
- *  for loop
- *      "for i 5":{
- *          "/number myObject.i":"i", // vytvori 5 promennych se jmeny 0, 1, 2, 3, 4 a stejnymi hodnotami
- * 
- *          "/number myObject.!i":"i" // 5x vytvori promennou i s hodnotami 0, 1, 2, 3, 4 - tedy konecny produkt je promenna i s hodnotou 4
- *      }
- *  minor changes:
- *      vykricnik pred nazvem znamena, ze nechceme cist z pameti - "console":"!time_ is not _time" // log: 'time is not 99'
- *      cisla a boolean se nini nemusi psat jako string - "/number cislo":50 ; "/cislo": "20" ; "/string myBool": true
- *  keyword: delete - smaze prvek objektu "delete":"myObject.myNewString"
- *  poznámka:
- *      stale netusim, proc bych mel do dandascriptu pridavat boolean jako datovy typ
- * 
- * den 18.
- *  konecne jdou opravdu vytvorit funkce s nulou argumentu
- *  pridana stdLib - hlavni je to, ze muzu pridavat funkce v js pohodlnym zpusobem
- *  zase neusnu, nechapu, proc vzdy vecer programuju 10x lepe a uz me to zacina stvat, ale asi se tak muzu pres den soustredit na realny zivot
- *  kazdopadne, abych si to tady nerikal jen tak do prazdna:
- *  DNDSInterpret.split() je nova funkce umoznujici mi efektivne parsovat text, drive jsem pouzival Array.prototype.split(),
- *  nebo jak se ta cesta pise a ten mi nezajistil dostatecnou flexibilitu
- *  taky jsem si zacal ukladat verze pro pripad ze neco nenavratne rozbiju, nebo jinak ztratim data
- *      -dalo by se rict, ze to delam, abych mel hmatatelny dukaz o mem pokroku, ale do tech verzi se stejne nikdy nepodivam, takze co uz :D + poznamky mi staci
- *  POZN: ONO TO FUNGUJE NA PRVNI POKUS!!!!
- *      -test:
- *  "/function sayHello[string:hello]":{
-        return:"hello"
-    },
-    "return":"sayHello[std.pow[2;2]]" // vratilo: 4 // drivejsi verze vrati: 'std.pow[2'
- *  
- * den 19.
- *  array - nekolikrat discardnuto // nakonec jsem se vratil k posledni stabilni verzi
- *  interpret.translateParams - vylepseno, nemyslim si, ze to bylo nutne, ale v budoucnu mi to ulehci debuggovani 
- * 
- * den 20.
- *  interpret.splitParams
- *  a vubec tak nejak priprava na pridani array jako datovy typ (uz se nemuzu dockat, az udelam mario-like hru v dandascriptu xd)
- *      - hlavne teda moznost napsat neco takoveho number poziceX = pole[i][j].getPos(std.random(2;6))
- *      - std.random(min;max) // min max, abych se zbavil co nejvice matematiky v dnds
- * 
- * den 21.
- *  array - konecne funkcni, zatim sice nema zadne metody, ty uz se ale pridaji jednoduse
- *  syntax - 
- *          "/array pole":{
- *              "string":"Hello world!",
- *              "array":{
- *                  "string":"neco si domysli"
- *              }
- *          },
- *          "/string pole[2]":"Bye world!",
- *          "return":"pole[1][0]"
- *  nemam zatim zadne tridy a uprimne je asi delat ani nebudu, obrovsky by to sice zvysilo vykon, ale musel bych proto prekopat cely interpret
- *  update: indexy objektu se nini muzou psat 2 zpusoby
- *      - translated: objekt{index}
- *      - untranslated: objekt.update
- *  samozrejme se daji metody kombinovat: objekt{var}.ahoj[5][getIdx](Ahoj mami jsem v televizi)
- *      - bug: zavorky pro poslani parametru se muzou objevit jen jednou
- * 
- * den 22.
- *  bugfix: objekty nyni vidi spravne do pameti
- *      - pole nyni mohou pouzivat vicekrat stejny datovy typ pri deklaraci pomoci duplicate initilazer "----string":"Hello!"
- * 
- * den 23. 
- *  bugfix: výsledek funkcí i operací lze napsat rovnou do parametru volané funkce "myFunc(otherFunc(123);=123 + func(122))"
- *  update: DNDS obsahuje vývojářskou verzi
- * 
- */
-
-
-/** // bugy co jsem nevyresil prvni den, po objevu
- * 
- * bugs: return v if a for nefunguje správně 12. den // fixed 14. den
- *      pokud posilam do funkce immutable promennou sayHello[!!!hello] - je nutne napsat 3 vykricniky 17. den
- *      zavorky pro poslani parametru se muzou objevit jen jednou 21. den // fixed 23. den
- *      pri vytvareni 2+ promennych se stejnymi datovymi typy v jednom poli nelze pouzit duplicate initilazer na zacatku leve strany "---number":5 den 21. // fixed 22. den
- * 
- */
-
-
-
-
-/**
- * KOCEPT STACK COMPARISONS - den 10.
- * 
- * výraz: "one + seven = 19 - nine + negativeTwo = eight"
- * 
- * backstack = null /-/ = > < <= >= /-/
- * frontstack = null /-/ + - * / % **
- * 
- * start
- * frontstack 1
- * frontstack2  +
- * frontstack 7, ""
- * backstack = frontstack(8), =; frontstack = null
- * frontstack 19
- * frontstack2 -
- * frontstack 9, ""
- * frontstack2 +
- * frontstack -2
- * backstack = true(backstack = frontstack), =; frontstack = null
- * frontstack = 8
- * end; backstack = false(backstack(true) = 8); frontstack = null
- * return frontstack ?? backstack
- * 
- * 
- */
-
-/**
- * DEN 12. PRVNI UZITECNA FUNKCE V DnD scriptu - pow // pro tyhle veci budu stejne delat js knihovny, ale je fajn videt, ze uz neco funguje
- * "/function pow[number:num;number:n]":{
-        "/number start":"num",
-        "for i =n - 1":{
-            "/num":"=start * num"
-        },
-        "return":"num"
-    }
-    mozna bych mel udelat i debug release, tohle mi zbitecne zabralo az prilis hodin
-
-    DEN 13. - nic navic, jenom tahle funkce pro odmocnovani
-
-    "/function sqrt[number:num]":{
-        "/number guess":"=num / 2",
-        "for i 10":{
-            "/guess":"=num / guess + guess * 0.5"
-        },
-        "return":"guess"
-    },
-    "return":"sqrt[225]"
-
-
-    // verze s exponentem // if na zacatku neni uplne dulezity, je tam jen pro bezpecnost, ale optimalni by to bylo bez nej
-    "/function sqrt[number:num;number:exponent]":{
-        "if =exponent < 2":{
-            "/exponent": "2"
-        },
-        "for j =exponent - 1":{
-            "/number guess":"=num / 2",
-            "for i 10":{
-                "/guess":"=num / guess + guess * 0.5"
-            },
-            "/num":"guess"
-        },
-        
-        "return":"guess"
-    },
-    "return":"sqrt[81;5]"
-
- * 
- */

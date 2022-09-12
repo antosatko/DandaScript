@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dandascript example</title>
+</head>
+
+<body>
+    <canvas id="canvas" width="1200" height="800" oncontextmenu="return false"></canvas>
+</body>
+<style>
+    body {
+        margin: 0px;
+        background-color: black;
+        overflow: hidden;
+    }
+</style>
+<script src="DNDSCanvas.js"></script>
+<script src="DNDSInterpret.js"></script>
+<script src="connect.js"></script>
+<script src="input.js"></script>
+<script src="stdLib.js"></script>
+<script>
+    const canvas = document.getElementById("canvas")
+    const c = canvas.getContext("2d")
+
+    let danda = new DNDSInterpret()
+    let connect = new DNDSConnect(danda)
+    let ctx = new DNDSCanvas(danda, c)
+    let input = new DNDS_HTML_Input(danda)
+    let stdLib = new DNDSStdLib(danda)
+
+    let stop = false
+    function play(){
+        stop = !stop
+        if(!stop)
+            main()
+    }
+
+    danda.readCode("code", {
+        "/object player": {
+            "number x": 0,
+            "number y": 50,
+            "number ys": 0,
+            "string onGround": false,
+            "function move()": {
+                "if keys.KeyA": {
+                    "/player.x": "=player.x - speed"
+                },
+                "if keys.KeyD": {
+                    "/player.x": "=player.x + speed"
+                },
+                "/player.y": "=player.y + player.ys",
+                "/player.ys": "=player.ys + 0.4",
+                "if keys.KeyW": {
+                    "read": "player.jump()"
+                }
+            },
+            "function jump()": {
+                "if player.onGround": {
+                    "/player.ys": -15,
+                    "/player.onGround": false
+                }
+            },
+            "function draw()": {
+                "canvas fillStyle": "color",
+                "canvas fillRect": "player.x;player.y;50;50"
+            },
+            "function collision()": {
+                "if =player.y > 700": {
+                    "/player.y": "700",
+                    "/player.ys": 0,
+                    "/player.onGround": true
+                }
+            },
+            "object object": {
+                "object object": {
+                    "number time": "std.time"
+                }
+            }
+        },
+        "/number speed": 5,
+        "/sentence color": "!hsl(_=player.x * 0.8_!,100%,50%)",
+        "/object keys": {
+            "string KeyD": false,
+            "string KeyA": false,
+            "string KeyW": false
+        },
+        "/array pole":{ },
+        "for i 3":{
+            "/object pole[i]":{
+                "array nazdar":{
+                    "array":{
+                        "object": {
+                            "number a":"20"
+                        }
+                    }
+                }
+            }
+        },
+        "/function getNumberZero()":{
+            return:0
+        },
+        "/array enemies":{
+                "object":{
+                    "number x":"std.random(100;800)",
+                    "number y":"std.random(100;600)",
+                    "number ys":"0"
+                }
+             },
+        "/number time":0,
+        "/number lenght":-1
+    })
+    danda.readCode("HTMLInput", {
+        "keys KeyD KeyA KeyW": {
+            "/keys{name}": "down",
+        }
+    })
+
+    function main() {
+        danda.readCode("code", {
+            "/time":"=time + 1",
+
+            "canvas fillStyle": "black",
+            "canvas fillRect": "0;0;1600;800",
+
+            "if =time % 60 = 0":{
+                "/number idx":"=time / 60",
+                "/object enemies[idx]":{
+                    "number x":"std.random(100;800)",
+                    "number y":"std.random(100;600)",
+                    "number ys":"0"
+                },
+                "/lenght":"=lenght + 1"
+            },
+            "read": "player.move()",
+            "-read": "player.collision()",
+            "--read": "player.draw()",
+
+            "-canvas fillStyle":"red",
+            "for i lenght":{
+                "if =i > 0":{
+                    "/enemies[i].ys":"=enemies[i].ys + 0.1",
+                    "/enemies[i].y":"=enemies[i].ys + enemies[i].y",
+                    "canvas fillRect":"enemies[i].x;enemies[i].y;50;50"
+                }
+            }
+        })
+        if(!stop)
+            requestAnimationFrame(main) //setTimeout(main, 1000 / 50)
+    }
+    main()
+</script>
+
+</html>

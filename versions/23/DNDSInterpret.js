@@ -1,5 +1,6 @@
 class DNDSInterpret {
     constructor() {
+        this.source
         this.memory = {}
         this.indicators = {
             duplicate: "-",
@@ -730,7 +731,7 @@ requestAction(data  )
  * 
  * bugs: return v if a for nefunguje správně 12. den // fixed 14. den
  *      pokud posilam do funkce immutable promennou sayHello[!!!hello] - je nutne napsat 3 vykricniky 17. den
- *      zavorky pro poslani parametru se muzou objevit jen jednou 21. den // fixed 23. den
+ *      zavorky pro poslani parametru se muzou objevit jen jednou 21. den
  *      pri vytvareni 2+ promennych se stejnymi datovymi typy v jednom poli nelze pouzit duplicate initilazer na zacatku leve strany "---number":5 den 21. // fixed 22. den
  * 
  */

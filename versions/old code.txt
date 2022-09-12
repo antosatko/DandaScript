@@ -1,0 +1,107 @@
+danda.readCode("code", {
+        "/object player": {
+            "number x": 3,
+            "number y": 50,
+            "number ys": 0,
+            "string onGround": false,
+            "function move()": {
+                "if =player.y <= mapHeight[mapPos] + 40":{
+                    "if =player.x / 100 % 1 < 0.5":{ // doprava
+                        //"/player.x":"=mapPos * 100 + 1",
+                        "if keys.KeyD": {
+                            "/player.x": "=player.x + speed"
+                        }
+                    },
+                    console:"=player.x / 100 % 1 > 0.5",
+                    "if =player.x / 100 % 1 < 0.5":{ // doleva
+                        //"/player.x":"=mapPos + 1 * 100 + 1",
+                        "if keys.KeyA": {
+                            "/player.x": "=player.x - speed"
+                        }
+                    },
+                },
+                
+                "/player.y": "=player.y + player.ys",
+                "/player.ys": "=player.ys + 0.4",
+                "if keys.KeyW": {
+                    "read": "player.jump()"
+                }
+            },
+            "function jump()": {
+                "if player.onGround": {
+                    "/player.ys": -15,
+                    "/player.onGround": false
+                }
+            },
+            "function draw()": {
+                "canvas fillStyle": "color",
+                "canvas fillRect": "player.x;player.y;50;50"
+            },
+            "function collision()": {
+                "if =player.y > mapHeight[mapPos]": {
+                    "if =player.y < mapHeight[mapPos] + 40":{
+                        "/player.y": "mapHeight[mapPos]",
+                        "/player.ys": 0,
+                        "/player.onGround": true
+                    }
+                }
+            }
+        },
+        "/array mapHeight":{
+            "number": 700,
+            "-number": 700,
+            "--number":650,
+            "---number":650
+        },
+        "/array enemies":{
+
+        },
+        "/number lenght":0,
+        "/function newEnemy(number:x;number:y)":{
+            "console":"x",
+            "/object enemies[lenght]":{
+                "number x": "x",
+                "number y": "y"
+            },
+            "/lenght":"=lenght + 1"
+        },
+        "/number speed": 5,
+        "/sentence color": "!hsl(_=player.x * 0.8_!,100%,50%)",
+        "/object keys": {
+            "string KeyD": false,
+            "string KeyA": false,
+            "string KeyW": false
+        },
+        "/array pole":{ },
+        "/number time":0,
+        "/number mapPos":0
+    })
+    danda.readCode("HTMLInput", {
+        "keys KeyD KeyA KeyW": {
+            "/keys{name}": "down",
+        }
+    })
+
+    function main() {
+        danda.readCode("code", {
+            "/number n":"=player.x / 100",
+            "/mapPos":"=std.floor(n)",
+            "/time":"=time + 1",
+
+            "canvas fillStyle": "black",
+            "canvas fillRect": "0;0;1600;800",
+
+            "read": "player.move()",
+            "-read": "player.collision()",
+            "--read": "player.draw()",
+
+            "for i lenght":{
+                "canvas fillStyle": "!red",
+                "canvas fillRect": "enemies[i].x;enemies[i].y;50;50"
+            },
+
+            "-canvas fillStyle":"!red",
+        })
+        if(!stop)
+            requestAnimationFrame(main)
+    }

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dandascript example</title>
+</head>
+
+<body>
+    <canvas id="canvas" width="1200" height="800" oncontextmenu="return false"></canvas>
+</body>
+<style>
+    body {
+        margin: 0px;
+        background-color: black;
+        overflow: hidden;
+    }
+</style>
+<script src="DNDSCanvas.js"></script>
+<script src="DNDSInterpret.js"></script>
+<script src="connect.js"></script>
+<script src="input.js"></script>
+<script src="stdLib.js"></script>
+<script src="dandaScript.js"></script>
+<script>
+    const canvas = document.getElementById("canvas")
+    const c = canvas.getContext("2d")
+
+    let danda = new DNDSInterpret()
+    let connect = new DNDSConnect(danda)
+    let ctx = new DNDSCanvas(danda, c)
+    let input = new DNDS_HTML_Input(danda)
+    let stdLib = new DNDSStdLib(danda)
+
+    danda.readCode("code", {
+        "/object player": {
+            "number x": 50,
+            "number y": 50,
+            "number ys": 0,
+            "string onGround": false,
+            "function move[string:a]": {
+                "if keys.KeyA": {
+                    "/player.x": "=player.x - speed"
+                },
+                "if keys.KeyD": {
+                    "/player.x": "=player.x + speed"
+                },
+                "/player.y": "=player.y + player.ys",
+                "/player.ys":"=player.ys + 0.4",
+                "if keys.KeyW":{
+                    "read":"player.jump[]"
+                }
+            },
+            "function jump[string:a]": {
+                "if player.onGround": {
+                    "/player.ys": -15,
+                    "/player.onGround": false
+                }
+            },
+            "function draw[string:a]": {
+                "canvas fillStyle": "color",
+                "canvas fillRect": "player.x;player.y;50;50"
+            },
+            "function collision[string:a]": {
+                "if =player.y > 700": {
+                    "/player.y": "700",
+                    "/player.ys": 0,
+                    "/player.onGround": true
+                }
+            }
+        },
+        "/number speed": 5,
+        "/sentence color":"hsl(_=player.x * 0.8_,100%,50%)",
+        "/object keys": {
+            "string KeyD": false,
+            "string KeyA": false,
+            "string KeyW": false
+        }
+    })
+    danda.readCode("HTMLInput", {
+        "keys KeyD KeyA KeyW": {
+            "/keys.name": "down",
+        }
+    })
+
+    function main() {
+        danda.readCode("code", {
+            "canvas fillStyle": "black",
+            "canvas fillRect": "0;0;1600;800",
+
+            "read": "player.move[]",
+            "-read": "player.collision[]",
+            "--read": "player.draw[]"
+
+        })
+        requestAnimationFrame(main)
+    }
+    main()
+</script>
+
+</html>
