@@ -26,10 +26,19 @@
 <script src="input.js"></script>
 <script src="stdLib.js"></script>
 <script>
+    // you are looking at the demo script
+    // demo consists of a simple arcade-style game optimized for my machine (may run slowly since runtime is not intended for application programming)
+    // why did I choose a game to showcase my scripting language if it is not its primary use?
+    // - games are cool.
+    // - 1st rule of programming: You cant brag about your work if its not graphical. everybody knows that..
+    // game controls: A - move left, B - move right, LeftMouseButton - shoot
+    // game objective: Shoot down the incoming bombs to protect your country.
+    // game drawbacks: You can only have one shot on screen at any time
     const canvas = document.getElementById("canvas")
     const hzindicator = document.getElementById("refreshrate")
     const c = canvas.getContext("2d")
 
+    // appending extensions
     let danda = new DNDSDebugger()
     let connect = new DNDSConnect(danda)
     let ctx = new DNDSCanvas(danda, c)
@@ -44,6 +53,8 @@
             main()
     }
 
+    // initializing all variables and functions in the global memory before game-loop starts
+    // you can also do this in separate DNDS scripts if you need more organised project
     danda.readCode("code", {
         "/number score": 0,
         "/string gameover": false,
@@ -200,6 +211,9 @@
         },
         "/number t": 0,
     })
+    // here I am using external library for input written in JS
+    // the flag changing from "code" to "HTMLInput" means that runtime uses its keywords thus allowing us to write cleaner code
+    // libraries can decide how is the code executed and here it just takes type of an event as an argument and lets DNDS read 'normal' code on event trigger
     danda.readCode("HTMLInput", {
         "keys KeyA KeyD": {
             "/keys{name}": "down"
@@ -247,6 +261,9 @@
         },
     })
 
+    // last landmark of my demo is game-loop
+    // recursion is handled through JS function "requestAnimationFrame"
+    // the "-" character at the beginning is to prevent JS from deleting duplicate keys
     let dt = 0
     let lastframe = 0
     function main(timestamp) {
